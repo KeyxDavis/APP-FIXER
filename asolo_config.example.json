@@ -1,0 +1,7 @@
+{
+  "supabase_url": "https://your-project.supabase.co",
+  "supabase_anon_key": "your-supabase-anon-key",
+  "school_ids": [
+    "school-001"
+  ]
+}

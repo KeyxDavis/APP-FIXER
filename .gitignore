@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite
+*.sqlite3
+attendance.db
+exports/
+.school_branding/
+*.log
+.env
+asolo_config.json
+.vscode/.ropeproject/
+
+# Build outputs
+build/
+dist/
+*.spec
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Editor and IDE files
+.vscode/
+.idea/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/

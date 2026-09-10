@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asolo Owner Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #172033;
+        background: #eef2f6;
+      }
+      body {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 18px;
+      }
+      h1 {
+        margin-bottom: 6px;
+      }
+      .muted {
+        color: #607087;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #dce3eb;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 18px;
+      }
+      label {
+        display: block;
+        margin: 12px 0 5px;
+        font-weight: 600;
+      }
+      input,
+      textarea,
+      button {
+        box-sizing: border-box;
+        font: inherit;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #bdc8d6;
+      }
+      input,
+      textarea {
+        width: 100%;
+      }
+      textarea {
+        min-height: 72px;
+        resize: vertical;
+      }
+      button {
+        cursor: pointer;
+        background: #1e3a5f;
+        color: white;
+        border-color: #1e3a5f;
+      }
+      button.secondary {
+        background: white;
+        color: #1e3a5f;
+      }
+      button.danger {
+        background: #b42318;
+        border-color: #b42318;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1;
+        min-width: 180px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 12px 8px;
+        border-bottom: 1px solid #e5eaf0;
+        vertical-align: top;
+      }
+      th {
+        color: #607087;
+        font-size: 13px;
+      }
+      .status {
+        font-weight: 700;
+      }
+      .enabled {
+        color: #147a3d;
+      }
+      .disabled {
+        color: #b42318;
+      }
+      #message {
+        min-height: 24px;
+        margin-top: 12px;
+      }
+      @media (max-width: 700px) {
+        table {
+          font-size: 13px;
+        }
+        th:nth-child(4),
+        td:nth-child(4) {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Asolo Owner Portal</h1>
+    <p class="muted">
+      Manage school access and view account activity. Passwords are never
+      displayed or sent.
+    </p>
+
+    <section id="config" class="panel">
+      <h2>Connect</h2>
+      <label for="supabase-url">Supabase URL</label>
+      <input
+        id="supabase-url"
+        type="url"
+        placeholder="https://your-project.supabase.co"
+      />
+      <label for="supabase-key">Supabase anon key</label>
+      <input id="supabase-key" type="password" placeholder="Public anon key" />
+      <button id="connect">Connect</button>
+    </section>
+
+    <section id="login" class="panel" hidden>
+      <h2>Owner sign in</h2>
+      <label for="email">Owner email</label>
+      <input id="email" type="email" autocomplete="username" />
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" />
+      <button id="sign-in">Sign in</button>
+    </section>
+
+    <section id="dashboard" class="panel" hidden>
+      <div class="row">
+        <div>
+          <h2>Schools</h2>
+          <span id="signed-in" class="muted"></span>
+        </div>
+        <button id="refresh" class="secondary">Refresh</button>
+        <button id="sign-out" class="secondary">Sign out</button>
+      </div>
+      <div id="message" class="muted"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>School</th>
+            <th>Status</th>
+            <th>Members</th>
+            <th>Last activity</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="schools"></tbody>
+      </table>
+    </section>
+
+    <script>
+      let client;
+      const $ = (id) => document.getElementById(id);
+      const setMessage = (text, error = false) => {
+        $("message").textContent = text;
+        $("message").style.color = error ? "#b42318" : "";
+      };
+
+      $("connect").onclick = async () => {
+        const url = $("supabase-url").value.trim();
+        const key = $("supabase-key").value.trim();
+        if (!url || !key) return alert("Enter the Supabase URL and anon key.");
+        client = window.supabase.createClient(url, key);
+        $("config").hidden = true;
+        $("login").hidden = false;
+      };
+
+      $("sign-in").onclick = async () => {
+        const { error } = await client.auth.signInWithPassword({
+          email: $("email").value.trim(),
+          password: $("password").value,
+        });
+        if (error) return alert(error.message);
+        $("login").hidden = true;
+        $("dashboard").hidden = false;
+        $("signed-in").textContent = `Signed in as ${$("email").value.trim()}`;
+        await loadSchools();
+      };
+
+      async function loadSchools() {
+        setMessage("Loading schools...");
+        const { data, error } = await client.rpc("owner_list_schools");
+        if (error) return setMessage(error.message, true);
+        const body = $("schools");
+        body.replaceChildren();
+        for (const school of data || []) {
+          const row = document.createElement("tr");
+          const status = school.enabled ? "Enabled" : "Blocked";
+          row.innerHTML =
+            `<td><strong>${escapeHtml(school.name)}</strong><br><span class="muted">${escapeHtml(school.id)}</span></td>` +
+            `<td class="status ${school.enabled ? "enabled" : "disabled"}">${status}<br><span class="muted">${escapeHtml(school.status_message || "")}</span></td>` +
+            `<td>${school.member_count}</td><td>${school.last_activity ? new Date(school.last_activity).toLocaleString() : "No activity"}</td>`;
+          const actionCell = document.createElement("td");
+          const button = document.createElement("button");
+          button.textContent = school.enabled
+            ? "Block access"
+            : "Restore access";
+          button.className = school.enabled ? "danger" : "";
+          button.onclick = () => changeAccess(school);
+          actionCell.appendChild(button);
+          row.appendChild(actionCell);
+          body.appendChild(row);
+        }
+        setMessage(`${(data || []).length} school(s) loaded.`);
+      }
+
+      async function changeAccess(school) {
+        const enabled = !school.enabled;
+        const message = enabled
+          ? ""
+          : prompt(
+              "Message shown to this school:",
+              "Access disabled by the application owner.",
+            );
+        if (!enabled && message === null) return;
+        const { error } = await client.rpc("owner_set_school_access", {
+          p_school_id: school.id,
+          p_enabled: enabled,
+          p_message: message || null,
+        });
+        if (error) return setMessage(error.message, true);
+        await loadSchools();
+      }
+
+      $("refresh").onclick = loadSchools;
+      $("sign-out").onclick = async () => {
+        await client.auth.signOut();
+        location.reload();
+      };
+      function escapeHtml(value) {
+        return String(value).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+    </script>
+  </body>
+</html>
