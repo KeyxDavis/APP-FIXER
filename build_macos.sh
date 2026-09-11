@@ -24,4 +24,6 @@ if [ -f "asolo_config.json" ]; then
   cp "asolo_config.json" "dist/asolo_config.json"
 fi
 
-echo "Build complete: dist/AsoloAttendance.app"
+mkdir -p installer-output
+ditto -c -k --sequesterRsrc --keepParent "dist/AsoloAttendance.app" "installer-output/AsoloAttendance-macos.zip"
+echo "Build complete: installer-output/AsoloAttendance-macos.zip"

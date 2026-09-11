@@ -24,4 +24,6 @@ if [ -f "asolo_config.json" ]; then
   cp "asolo_config.json" "dist/asolo_config.json"
 fi
 
-echo "Build complete: dist/AsoloAttendance"
+mkdir -p installer-output
+tar -czf "installer-output/AsoloAttendance-linux-x64.tar.gz" -C dist AsoloAttendance
+echo "Build complete: installer-output/AsoloAttendance-linux-x64.tar.gz"
